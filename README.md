@@ -12,13 +12,79 @@ Claude Code 插件，在对话中直接增删改查飞书日历日程。
 
 ## 安装
 
+建议统一放置路径，方便跨设备管理：
+
 ```bash
-git clone <repo-url>
+mkdir -p ~/projects                                    # 没有 projects 目录就先创建
+cd ~/projects
+git clone https://github.com/Sugarcgmade/feishu-calendar-mcp.git
 cd feishu-calendar-mcp
-python setup.py
+python setup.py                                         # 输入 App ID / Secret → 浏览器 OAuth → 自动配置完成
 ```
 
 按提示输入 App ID 和 App Secret，浏览器自动打开完成飞书 OAuth 授权。重启 Claude Code 生效。
+
+## 架构
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         你的电脑                                 │
+│                                                                  │
+│  ┌──────────┐    自然语言     ┌──────────────┐                   │
+│  │   你     │ ◄────────────► │  Claude Code │                    │
+│  │ (用户)   │                │  claude.exe   │                   │
+│  └──────────┘                └──────┬───────┘                   │
+│                                     │                            │
+│                              读取    │  spawn 子进程              │
+│                          ~/.claude/ │  stdio JSON-RPC (MCP)     │
+│                      ┌──────────────┼──────────────┐            │
+│                      ▼              ▼              ▼            │
+│               ┌──────────┐  ┌──────────────┐  ┌──────────┐     │
+│               │ CLAUDE.md │  │  .mcp.json   │  │  其他    │     │
+│               │ (行为规则) │  │ {feishu-     │  │  MCP     │     │
+│               │           │  │  calendar:   │  │ Server   │     │
+│               │           │  │  python      │  │          │     │
+│               │           │  │  ~/projects/ │  │          │     │
+│               │           │  │  feishu-     │  │          │     │
+│               │           │  │  calendar-   │  │          │     │
+│               │           │  │  mcp/        │  │          │     │
+│               │           │  │  server.py}  │  │          │     │
+│               └──────────┘  └──────┬───────┘  └──────────┘     │
+│                                    │                             │
+│                          ┌─────────▼──────────┐                 │
+│                          │  feishu-calendar   │                 │
+│                          │  MCP Server        │                 │
+│                          │  ~/projects/       │                 │
+│                          │  feishu-calendar-  │                 │
+│                          │  mcp/server.py      │                 │
+│                          │                    │                 │
+│                          │  Tools:            │                 │
+│                          │  · event_query     │                 │
+│                          │  · event_create    │                 │
+│                          │  · event_update    │                 │
+│                          │  · event_delete     │                 │
+│                          │  · calendar_info   │                 │
+│                          └────────┬───────────┘                 │
+│                                   │                              │
+│                          user_access_token (OAuth)              │
+│                          token.json (自动刷新)                   │
+│                                   │                              │
+└───────────────────────────────────┼──────────────────────────────┘
+                                    │ HTTPS
+                                    ▼
+                    ┌───────────────────────────┐
+                    │     飞书开放平台           │
+                    │     open.feishu.cn         │
+                    │                            │
+                    │  Calendar V4 API           │
+                    │  · /calendars/primary/     │
+                    │    events                  │
+                    │                            │
+                    │  Auth                      │
+                    │  · OAuth authorize         │
+                    │  · refresh_access_token    │
+                    └───────────────────────────┘
+```
 
 ## 使用
 
