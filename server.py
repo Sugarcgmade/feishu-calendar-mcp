@@ -82,6 +82,7 @@ async def _load_tokens() -> dict:
 
 async def _save_tokens(data: dict) -> None:
     global _token_cache
+    data["updated_at"] = int(datetime.now(TZ_SHANGHAI).timestamp())
     _token_cache = data
     TOKEN_FILE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
@@ -110,7 +111,7 @@ async def _refresh_user_token(refresh_token: str) -> tuple[str, str] | None:
 
 
 async def get_token() -> str:
-    """获取有效的 user_access_token"""
+    """获取有效的 user_access_token，快过期时主动续期"""
     tokens = await _load_tokens()
     uat = tokens.get("user_access_token", "")
 
@@ -119,7 +120,20 @@ async def get_token() -> str:
             "缺少飞书授权。请运行 OAuth 授权流程获取 user_access_token。"
         )
 
-    # token 过期时由 _call_api 自动触发 refresh，这里只负责返回当前 token
+    # user_access_token 有效期 2 小时，提前 300 秒主动刷新
+    updated_at = tokens.get("updated_at", 0)
+    age = int(datetime.now(TZ_SHANGHAI).timestamp()) - updated_at
+    if age > 6900:
+        rt = tokens.get("refresh_token", "")
+        if rt:
+            result = await _refresh_user_token(rt)
+            if result:
+                new_uat, new_rt = result
+                tokens["user_access_token"] = new_uat
+                tokens["refresh_token"] = new_rt
+                await _save_tokens(tokens)
+                return new_uat
+
     return uat
 
 
